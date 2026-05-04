@@ -1,0 +1,257 @@
+\documentclass[11pt]{beamer}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{tikz}
+
+\usetheme{Madrid}
+\definecolor{primary}{RGB}{0,102,153}
+\setbeamercolor{structure}{fg=primary}
+\setbeamercolor{frametitle}{fg=primary}
+\setbeamercolor{alerted text}{fg=primary}
+
+\title{Déploiement d'une Application Full-Stack}
+\subtitle{Docker Compose et Kubernetes}
+\author{Arif Ghazi}
+\institute{ISET Tozeur - M1 DevOps}
+\date{2026}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+  %\begin{center}
+  %  \includegraphics[width=2.5cm]{docker.png}\hspace{1cm}
+  %  \includegraphics[width=2.5cm]{kubernetes.png}
+  %\end{center}
+\end{frame}
+
+\begin{frame}{Agenda}
+  \tableofcontents
+\end{frame}
+
+\section{Application et architecture}
+\begin{frame}{Présentation de l'application choisie}
+  \begin{itemize}
+    \item Application de gestion de tâches CRUD.
+    \item Interface utilisateur moderne avec React/Vite.
+    \item Backend Node.js/Express exposant l'API \texttt{/api/tasks}.
+    \item Stockage relationnel avec PostgreSQL.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Architecture globale}
+  \begin{itemize}
+    \item Frontend servi par Nginx.
+    \item Backend API REST.
+    \item Base de données PostgreSQL.
+    \item Flux : frontend \textrightarrow backend \textrightarrow postgres.
+  \end{itemize}
+\end{frame}
+
+\section{Technologies et environnement}
+\begin{frame}{Technologies utilisées}
+  \begin{itemize}
+    \item Docker / Docker Compose
+    \item Kubernetes (Kind)
+    \item Node.js / Express
+    \item PostgreSQL
+    \item Nginx
+    \item React / Vite
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Environnement de travail}
+  \begin{itemize}
+    \item Machine de développement Windows avec Docker Desktop.
+    \item Cluster Kubernetes local Kind.
+    \item 1 nœud master + 2 workers.
+    \item Namespace \texttt{app-dev} dédié à l'application.
+  \end{itemize}
+\end{frame}
+
+\section{Phase 1 -- Docker Compose}
+\begin{frame}{Architecture Docker Compose}
+  \begin{itemize}
+    \item Services : frontend, backend, database.
+    \item Réseaux : \texttt{frontend-net}, \texttt{backend-net}.
+    \item Volume persistant pour PostgreSQL.
+    \item Dépendances gérées avec \texttt{depends\_on} et healthchecks.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Best practices Docker Compose}
+  \begin{itemize}
+    \item Versions fixes des images.
+    \item Builds multi-stage.
+    \item Isolation réseau par services.
+    \item Healthchecks pour l'ordre de démarrage.
+    \item Persistance via volume nommé.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Extrait \texttt{docker-compose.yml}}
+\begin{lstlisting}
+services:
+  database:
+    image: postgres:15-alpine
+  backend:
+    build: ./backend
+  frontend:
+    build: ./frontend
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Démo / validation Docker Compose}
+  \begin{itemize}
+    \item Commande principale : \texttt{docker compose up --build}.
+    \item Vérifier avec \texttt{docker compose ps}.
+    \item Tester l'interface via \texttt{http://localhost:8080}.
+    \item Persistance des données après redémarrage.
+  \end{itemize}
+\end{frame}
+
+\section{Phase 2 -- Kubernetes}
+\begin{frame}{Architecture du cluster K3s / Kind}
+  \begin{itemize}
+    \item 1 master + 2 workers.
+    \item Infrastructure locale pour tests.
+    \item Namespace \texttt{app-dev} isolé.
+    \item Images poussées via \texttt{kind load docker-image}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Schéma global des objets Kubernetes}
+  \begin{itemize}
+    \item \textbf{Deployment} : frontend, backend.
+    \item \textbf{Service} : NodePort pour frontend/backend.
+    \item \textbf{StatefulSet} : PostgreSQL.
+    \item \textbf{PVC} : stockage persistant.
+    \item \textbf{ConfigMap / Secret} : configuration et mots de passe.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Exemple ConfigMap / Secret}
+\begin{lstlisting}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  BACKEND_URL: http://backend-service:4000
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+type: Opaque
+data:
+  POSTGRES_PASSWORD: cGFzc3dvcmQ=
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Persistent Volume & PVC}
+  \begin{itemize}
+    \item Volume persistant pour PostgreSQL.
+    \item PVC alloue du stockage stable.
+    \item Permet de conserver les données après redémarrage.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Extrait Deployment / Service YAML}
+\begin{lstlisting}
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: backend
+---
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  type: NodePort
+  ports:
+    - port: 4000
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Best practices Kubernetes appliquées}
+  \begin{itemize}
+    \item Readiness / liveness probes.
+    \item Labels cohérents et selectors clairs.
+    \item Secrets pour les informations sensibles.
+    \item StatefulSet pour la base de données.
+    \item NetworkPolicy pour l'isolation réseau.
+  \end{itemize}
+\end{frame}
+
+\section{Tests et validation}
+\begin{frame}{Tests et validation}
+  \begin{itemize}
+    \item Vérifier les pods avec \texttt{kubectl get pods -n app-dev}.
+    \item Contrôler les services avec \texttt{kubectl get svc -n app-dev}.
+    \item Tester le frontend avec port-forward.
+    \item Valider les endpoints API CRUD.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Test réseau / NetworkPolicy}
+\begin{lstlisting}
+kubectl run test-frontend -n app-dev --restart=Never \
+  --rm --image=curlimages/curl \
+  -- sh -c "curl --max-time 5 -sS http://postgres-service:5432 >/dev/null 2>&1; echo EXIT_CODE=$?"
+\end{lstlisting}
+\end{frame}
+
+\begin{frame}{Résilience et disponibilité}
+  \begin{itemize}
+    \item Suppression manuelle d'un pod frontend/backend.
+    \item Kubernetes recrée automatiquement le pod.
+    \item Pod redevenu \texttt{Ready} en environ 30 secondes.
+  \end{itemize}
+\end{frame}
+
+\section{Difficultés et solutions}
+\begin{frame}{Difficultés rencontrées}
+  \begin{itemize}
+    \item Synchronisation database/backend.
+    \item Chargement des images dans Kind.
+    \item Configuration initiale des NetworkPolicy.
+    \item Port-forward occupé par processus actif.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Solutions apportées}
+  \begin{itemize}
+    \item Healthchecks et \texttt{depends\_on}.
+    \item Chargement explicite des images avec Kind.
+    \item Ajout de policies Ingress/Egress.
+    \item Arrêt des processus conflictuels avant test.
+  \end{itemize}
+\end{frame}
+
+\section{Conclusion}
+\begin{frame}{Conclusion et améliorations futures}
+  \begin{itemize}
+    \item Projet opérationnel en Docker Compose et Kubernetes.
+    \item Isolation réseau et résilience validées.
+    \item Améliorations : CI/CD, monitoring, GitOps, production.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Merci}
+  \begin{center}
+    \Large Questions ?
+  \end{center}
+\end{frame}
+
+\end{document}

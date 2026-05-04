@@ -1,0 +1,26 @@
+﻿services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: tasks
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - 5433:5433
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/tasks
+      PORT: 4000
+      CORS_ORIGIN: http://localhost:5173
+    ports:
+      - 4000:4000
+    depends_on:
+      - db
+
+volumes:
+  db-data:

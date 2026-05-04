@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: task-manager-config
+  namespace: app-dev
+data:
+  # URL externe du backend (accessible depuis le navigateur Windows)
+  BACKEND_API_URL: "http://192.168.1.19:30400"
+  # URL interne du backend (pour les communications intra-cluster)
+  BACKEND_INTERNAL_URL: "http://backend-service:4000"

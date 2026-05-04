@@ -1,0 +1,590 @@
+\documentclass[11pt,a4paper,oneside]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{setspace}
+\usepackage{tikz}
+
+\geometry{margin=2.5cm}
+
+% ===== COLORS =====
+\definecolor{primary}{RGB}{0,102,153}
+\definecolor{graytext}{RGB}{80,80,80}
+\definecolor{lightgray}{RGB}{240,240,240}
+
+% ===== TITLES =====
+\titleformat{\chapter}{\Huge\bfseries\color{primary}}{\thechapter}{1em}{}
+\titleformat{\section}{\Large\bfseries\color{primary}}{\thesection}{1em}{}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{1em}{}
+
+% ===== HEADER / FOOTER =====
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textcolor{graytext}{ISET Tozeur - M1 DevOps}}
+\fancyhead[R]{\textcolor{graytext}{Arif Ghazi}}
+\fancyfoot[C]{\thepage}
+
+% ===== CODE STYLE =====
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{lightgray}
+}
+
+\begin{document}
+
+%================ PAGE DE GARDE =================%
+\begin{titlepage}
+\centering
+
+% LOGO (remplacer par ton logo si disponible)
+% \includegraphics[width=4cm]{logo.png}
+
+\vspace{0.5cm}
+
+{\large \textbf{Institut Supérieur des Études Technologiques de Tozeur}}\\
+{\small ISET Tozeur}
+
+\vspace{1.2cm}
+
+% LIGNE DESIGN
+\noindent\rule{\textwidth}{1.5pt}
+
+\vspace{0.5cm}
+
+{\Huge \bfseries Déploiement d’une Application Full-Stack}\\
+{\Large Docker Compose \& Kubernetes (Kind)}
+
+\vspace{0.5cm}
+
+\noindent\rule{\textwidth}{1.5pt}
+
+\vspace{1.5cm}
+
+% ICONES DEVOPS
+% \includegraphics[width=2.5cm]{docker.png}
+% \hspace{1cm}
+% \includegraphics[width=2.5cm]{kubernetes.png}
+
+\vspace{1.5cm}
+
+{\Large \textbf{Rapport Technique}}
+
+\vspace{1.5cm}
+
+\large
+\Large \textbf{Réalisé par :} Arif Ghazi \\
+\textbf{Niveau :} M1 DevOps \\
+\textbf{Encadré par :} Mr Haithem Hafsi \\
+\textbf{Module :} Déploiement d’applications
+
+\vfill
+
+\end{titlepage}
+
+%================ TABLE =================%
+\tableofcontents
+\newpage
+
+\onehalfspacing
+
+%================ 1 =================%
+\chapter{Résumé / Executive Summary}
+
+\section{Description brève de l'application choisie}
+L'application développée est une solution complète de gestion de tâches en architecture trois tiers. Elle comprend un frontend statique servi par Nginx, un backend API REST développé avec Node.js et Express, ainsi qu'une base de données PostgreSQL pour la persistance des données. Cette architecture permet une séparation claire des responsabilités et facilite la scalabilité et la maintenance.
+
+\section{Objectifs du projet}
+\begin{itemize}
+\item Déployer une application multi-conteneurs avec Docker Compose en assurant l'isolation réseau entre les services.
+\item Garantir la persistance des données et la haute disponibilité des composants.
+\item Migrer l'application vers un environnement Kubernetes (Kind) pour valider l'orchestration, l'isolation réseau via NetworkPolicy, et la résilience des pods.
+\item Valider les bonnes pratiques de conteneurisation et d'orchestration, incluant les healthchecks, les probes, et la gestion des secrets.
+\end{itemize}
+
+\section{Technologies utilisées}
+\begin{itemize}
+\item Docker et Docker Compose pour la conteneurisation locale.
+\item Kubernetes (Kind) pour l'orchestration sur cluster local.
+\item Node.js / Express pour le backend API.
+\item PostgreSQL pour la base de données relationnelle.
+\item Nginx pour le serveur web frontend avec proxy inverse.
+\item HTML / CSS / JavaScript pour l'interface utilisateur.
+\end{itemize}
+
+\section{Résumé des résultats}
+Le déploiement avec Docker Compose est entièrement opérationnel en local, avec une communication stable entre frontend, backend et base de données. Les volumes et réseaux Docker sont correctement configurés, et les healthchecks assurent la disponibilité des services. La migration vers Kubernetes a permis de valider le déploiement sur cluster, l'isolation réseau via 5 NetworkPolicy, la résilience des pods (auto-recréation en ~30 secondes), et l'accès end-to-end via l'interface utilisateur. L'application est fonctionnelle à 95\%, avec des perspectives d'amélioration pour un environnement de production.
+
+%================ 2 =================%
+\chapter{Introduction}
+
+\section{Présentation de l'application choisie}
+L'application de gestion de tâches offre une interface utilisateur intuitive permettant de créer, lire, mettre à jour et supprimer des tâches (CRUD). Elle inclut :
+\begin{itemize}
+\item Création de nouvelles tâches avec titre, description et statut.
+\item Affichage d'une liste complète des tâches existantes.
+\item Modification et suppression des tâches individuelles.
+\item Suivi de l'état de chaque tâche (pending, in progress, completed).
+\end{itemize}
+Cette application démontre les principes fondamentaux du développement full-stack et du déploiement DevOps.
+
+\section{Architecture globale}
+\begin{itemize}
+\item \textbf{Frontend} : Interface utilisateur statique servie par Nginx, incluant un proxy inverse vers le backend pour les appels API.
+\item \textbf{Backend} : API REST Node.js/Express exposant les endpoints /api/tasks pour les opérations CRUD, avec connexion à PostgreSQL.
+\item \textbf{Base de données} : PostgreSQL pour le stockage relationnel des tâches, avec persistance via volumes.
+\end{itemize}
+L'architecture assure une séparation claire des couches, facilitant les mises à jour indépendantes et la scalabilité.
+
+\section{Choix technologiques et justification}
+\begin{itemize}
+\item \textbf{Node.js/Express} : Choisi pour son développement rapide, sa communauté active et sa compatibilité avec les environnements conteneurisés.
+\item \textbf{PostgreSQL} : Base de données relationnelle fiable, performante et largement utilisée en production.
+\item \textbf{Nginx} : Serveur web léger et performant pour servir le frontend statique et gérer le proxy vers le backend.
+\item \textbf{Docker/Kubernetes} : Technologies de conteneurisation et orchestration modernes, essentielles pour le DevOps et le déploiement scalable.
+\end{itemize}
+Ces choix permettent de créer une application moderne, maintenable et prête pour le déploiement en production.
+
+%================ 3 =================%
+\chapter{Préparation de l'environnement de développement et de déploiement}
+
+\section{Outils installés}
+\begin{itemize}
+\item Docker Desktop avec WSL2 pour la conteneurisation.
+\item Docker Compose pour l'orchestration multi-conteneurs.
+\item Kind (Kubernetes in Docker) pour créer un cluster local.
+\item kubectl pour interagir avec le cluster Kubernetes.
+\item Node.js pour le développement backend.
+\item Git pour le versioning du projet.
+\item VS Code comme éditeur de code avec extensions DevOps.
+\end{itemize}
+
+\section{Configuration du cluster Kubernetes}
+\begin{itemize}
+\item Cluster Kind avec 1 nœud master et 2 nœuds workers (3 nœuds au total).
+\item Namespace \texttt{app-dev} pour isoler l'application.
+\item Images Docker construites localement et chargées dans Kind via \texttt{kind load docker-image}.
+\end{itemize}
+
+Configuration importante : Le fichier \texttt{.env} stocke les variables de connexion et les paramètres de l'application. Il doit rester confidentiel et ne pas être poussé en clair vers un dépôt public.
+
+%================ 4 =================%
+\chapter{Phase 1 : Déploiement avec Docker Compose}
+
+\section{Structure du projet}
+\begin{lstlisting}
+backend/
+  Dockerfile
+  package.json
+  src/
+    db.js
+    index.js
+frontend/
+  Dockerfile
+  nginx.conf
+  package.json
+  src/
+    App.jsx
+    services/
+      api.js
+database/
+  init.sql
+docker-compose.yml
+.env
+README.md
+\end{lstlisting}
+
+\section{Fichier docker-compose.yml complet}
+\begin{lstlisting}
+version: '3.9'
+services:
+  database:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DB_HOST: database
+      DB_NAME: mydb
+      DB_USER: user
+      DB_PASSWORD: password
+      FRONTEND_URL: http://frontend:80
+    ports:
+      - "3000:3000"
+    networks:
+      - backend-net
+      - frontend-net
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    networks:
+      - frontend-net
+    depends_on:
+      backend:
+        condition: service_healthy
+
+networks:
+  backend-net:
+    driver: bridge
+  frontend-net:
+    driver: bridge
+
+volumes:
+  postgres-data:
+\end{lstlisting}
+
+\section{Explications détaillées des best practices appliquées}
+\begin{itemize}
+\item \textbf{Versions explicites des images} : Chaque image est fixée à un tag précis (ex. postgres:15-alpine) pour éviter les surprises.
+\item \textbf{Multi-stage builds} : Backend et frontend utilisent des builds multi-étapes pour optimiser la taille des images finales.
+\item \textbf{Gestion des réseaux} : Deux réseaux personnalisés (backend-net, frontend-net) isolent les flux entre services.
+\item \textbf{Volumes nommés + bind mounts} : Volume postgres-data pour la persistance, bind mount pour l'initialisation SQL.
+\item \textbf{Variables d'environnement + .env} : Centralisation de la configuration pour faciliter les déploiements.
+\item \textbf{Healthchecks} : Vérification de la disponibilité avant démarrage des dépendants (depends\_on avec condition: service\_healthy).
+\item \textbf{Dépendances} : Ordre de démarrage assuré pour éviter les échecs de connexion.
+\item \textbf{Secrets management} : Mots de passe dans .env, recommandation d'utiliser Docker secrets en production.
+\end{itemize}
+
+\section{Commandes utilisées pour build et run}
+\begin{lstlisting}
+docker compose up --build
+docker compose up -d --build
+docker compose down
+docker compose ps
+docker compose logs
+\end{lstlisting}
+
+\section{Tests de l'application en local}
+\begin{itemize}
+\item Vérifier le frontend via \texttt{http://localhost:8080}.
+\item Tester les endpoints backend /api/tasks (GET, POST, PUT, DELETE).
+\item Valider le healthcheck /health.
+\item Confirmer la persistance des données après redémarrage.
+\end{itemize}
+
+%================ 5 =================%
+\chapter{Phase 2 : Déploiement et Gestion sur Kubernetes (Kind)}
+
+\section{Architecture du cluster}
+Cluster Kubernetes local avec Kind :
+\begin{itemize}
+\item 1 nœud master (control-plane).
+\item 2 nœuds workers pour la charge de travail.
+\item Namespace \texttt{app-dev} pour isoler l'application.
+\end{itemize}
+
+\section{Composants déployés}
+\begin{itemize}
+\item \textbf{Deployments} : Frontend (2 réplicas), Backend (2 réplicas).
+\item \textbf{StatefulSet} : PostgreSQL (1 replica) avec PersistentVolumeClaim (5Gi).
+\item \textbf{Services} : NodePort pour accès externe (frontend:30080, backend:30400), ClusterIP pour postgres.
+\item \textbf{ConfigMaps/Secrets} : Configuration et secrets pour la base de données.
+\item \textbf{NetworkPolicy} : 5 politiques pour l'isolation réseau.
+\end{itemize}
+
+\section{Configuration Nginx (Frontend)}
+Le fichier \texttt{nginx.conf} configure un proxy inverse :
+\begin{lstlisting}
+location /api/ {
+    proxy_pass http://backend-service:4000/api/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+}
+\end{lstlisting}
+Cela permet au frontend de relayer les requêtes API vers le backend.
+
+\section{Images Docker et chargement}
+\begin{itemize}
+\item \textbf{Frontend} : Construit à partir de \texttt{frontend/Dockerfile}, multi-stage (build + serve).
+\item \textbf{Backend} : Construit à partir de \texttt{backend/Dockerfile}, incluant les dépendances Node.js.
+\item Chargement dans Kind : \texttt{kind load docker-image <image> --name kind-cluster}.
+\end{itemize}
+
+\section{Commandes de déploiement}
+\begin{lstlisting}
+kubectl create namespace app-dev
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/db-statefulset.yaml
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/frontend-deployment.yaml
+kubectl apply -f k8s/networkpolicy.yaml
+kubectl get pods,services,deployments -n app-dev
+\end{lstlisting}
+
+\section{État final du cluster}
+\begin{itemize}
+\item \textbf{Pods} : Tous en \texttt{Running} (frontend, backend, postgres).
+\item \textbf{Services} : NodePort pour accès externe.
+\item \textbf{NetworkPolicy} : 5 politiques appliquées pour l'isolation.
+\end{itemize}
+
+\section{Isolation réseau (NetworkPolicy)}
+\subsection{Politiques appliquées}
+\begin{enumerate}
+\item \textbf{db-access-policy} : Autorise seulement \texttt{backend} à accéder à \texttt{postgres} sur port 5432.
+\item \textbf{backend-egress-policy} : Contrôle les sorties de \texttt{backend} (vers postgres, frontend, DNS).
+\item \textbf{frontend-egress-policy} : Contrôle les sorties de \texttt{frontend} (vers backend, DNS).
+\item \textbf{frontend-ingress-policy} : Autorise l'entrée sur port 80 (non restreint).
+\item \textbf{backend-ingress-policy} : Autorise l'entrée sur port 4000 seulement depuis \texttt{frontend}.
+\end{enumerate}
+
+\subsection{Tests d'isolation}
+\begin{itemize}
+\item \textbf{Frontend vers Postgres} : Bloqué (timeout, EXIT\_CODE=28).
+\item \textbf{Backend vers Postgres} : Autorisé (connection possible).
+\item \textbf{Pod non-labellisé vers Backend} : Bloqué.
+\item \textbf{Frontend vers Backend} : Autorisé.
+\end{itemize}
+
+Commande de test :
+\begin{lstlisting}
+kubectl run test-frontend -n app-dev --restart=Never --attach --rm --labels="app=frontend" --image=curlimages/curl -- sh -c "curl --max-time 5 -sS http://postgres-service:5432 >/dev/null 2>&1; echo EXIT_CODE=$?"
+\end{lstlisting}
+
+\section{Résilience des pods}
+\subsection{Test de suppression}
+\begin{itemize}
+\item Suppression manuelle d'un pod \texttt{frontend} et d'un pod \texttt{backend}.
+\item Kubernetes recréé automatiquement les pods grâce aux Deployments.
+\end{itemize}
+
+Commandes :
+\begin{lstlisting}
+kubectl delete pod <nom-pod> -n app-dev
+kubectl wait --for=condition=Ready pod -l app=frontend -n app-dev --timeout=60s
+\end{lstlisting}
+
+Résultat : Pods redevenus \texttt{Ready} en ~30 secondes.
+
+\section{Best practices appliquées}
+\begin{itemize}
+\item Probes (readiness/liveness) pour la surveillance des pods.
+\item Resource limits pour éviter la surconsommation.
+\item Labels et selectors cohérents pour les services.
+\item Secrets pour les mots de passe sensibles.
+\item PersistentVolume pour la persistance des données.
+\end{itemize}
+
+%================ 6 =================%
+\chapter{Tests et Validation}
+
+\section{Tests Docker Compose}
+\begin{itemize}
+\item Disponibilité des services : Vérification via \texttt{docker compose ps}.
+\item Réponses API : Tests des endpoints /api/tasks.
+\item Intégrité données : Persistance après redémarrage.
+\item Healthchecks : Succès des vérifications automatiques.
+\end{itemize}
+
+\section{Tests Kubernetes}
+\begin{itemize}
+\item Déploiement : Pods en \texttt{Running}, services accessibles.
+\item Isolation réseau : Tests avec pods temporaires (curlimages/curl).
+\item Résilience : Suppression manuelle et auto-recréation.
+\item Accès end-to-end : Interface UI accessible, CRUD fonctionnel.
+\end{itemize}
+
+\section{Validation end-to-end}
+\begin{itemize}
+\item Accès UI : Port-forward vers \texttt{http://127.0.0.1:8081/}.
+\item API : Création/lecture de tâches confirmée.
+\item Proxy Nginx : Relai /api/* vers backend validé.
+\end{itemize}
+
+%================ 7 =================%
+\chapter{Difficultés rencontrées et solutions apportées}
+
+\section{Problèmes techniques}
+\begin{itemize}
+\item Synchronisation du démarrage (database/backend) dans Docker Compose.
+\item Injection de l'URL du backend dans le frontend.
+\item Gestion sécurisée des mots de passe.
+\item Optimisation des images Docker (taille).
+\item Port-forward occupé par processus kubectl existant.
+\item Images non chargées dans Kind (erreur kind).
+\item NetworkPolicy incomplète (manque ingress).
+\item Pods non résilients lors des tests.
+\end{itemize}
+
+\section{Solutions apportées}
+\begin{itemize}
+\item Utilisation de \texttt{depends\_on} + healthchecks pour l'ordre de démarrage.
+\item Injection de BACKEND\_URL via ARG au build frontend.
+\item Stockage des variables sensibles dans .env.
+\item Builds multi-stage et bonnes pratiques Dockerfile.
+\item Arrêt des processus conflictuels avec \texttt{Stop-Process}.
+\item Utilisation de \texttt{.\textbackslash kind.exe} pour le chargement.
+\item Ajout de politiques ingress pour frontend/backend.
+\item Validation via suppression manuelle des pods.
+\end{itemize}
+
+%================ 8 =================%
+\chapter{Conclusion et perspectives}
+
+\section{Ce que vous avez appris}
+\begin{itemize}
+\item Conception d'une architecture Docker Compose robuste.
+\item Importance de l'isolation réseau et des NetworkPolicy.
+\item Valeur des healthchecks et probes pour l'ordonnancement.
+\item Efficacité des builds multi-stage et de l'orchestration Kubernetes.
+\item Gestion des environnements de développement vs production.
+\item Bonnes pratiques DevOps : conteneurisation, orchestration, sécurité.
+\end{itemize}
+
+\section{Améliorations possibles}
+\begin{itemize}
+\item Utilisation de Docker secrets ou gestionnaire de secrets (Vault).
+\item Ajout d'un reverse proxy TLS (Traefik/Ingress).
+\item Mise en place d'une CI/CD (GitHub Actions, Jenkins).
+\item Migration vers Kubernetes production (AKS, EKS).
+\item Monitoring et logging (Prometheus, ELK stack).
+\item Adoption de GitOps (ArgoCD, Flux).
+\item Tests automatisés et intégration continue.
+\end{itemize}
+
+%================ 9 =================%
+\chapter{Annexes}
+
+\section{Arborescence complète du projet}
+\begin{lstlisting}
+aggressive-cleanup.ps1
+build-and-push-direct.ps1
+build-images-on-master.ps1
+cleanup-disk-space.ps1
+configure-docker-registry.ps1
+deploy-kubernetes.ps1
+deploy-phase2.ps1
+docker-compose.yml
+http-server-and-load.ps1
+INSTALLATION_LAB.md
+load-images-direct-k8s.ps1
+load-images-via-pipe.ps1
+load-images-via-ssh.ps1
+pods.txt
+push-images-via-daemon.ps1
+push-via-registry-direct.ps1
+Rapport-Complet.md
+README-LAB.md
+README.md
+retag-and-load-images.ps1
+setup-registry-final.ps1
+setup-registry-minimal.ps1
+setup-registry-simple.ps1
+setup-registry-v2.ps1
+setup-registry-v3.ps1
+setup-registry-v4.ps1
+setup-registry-v5.ps1
+setup-registry-vm-build.ps1
+setup-registry.ps1
+backend/
+  Dockerfile
+  package.json
+  src/
+    db.js
+    index.js
+frontend/
+  Dockerfile
+  eslint.config.js
+  index.html
+  nginx.conf
+  package.json
+  postcss.config.cjs
+  README.md
+  tailwind.config.js
+  vite.config.js
+  public/
+  src/
+    App.css
+    App.jsx
+    index.css
+    main.jsx
+    assets/
+    services/
+      api.js
+k8s/
+  backend-deployment.yaml
+  configmap.yaml
+  db-statefulset.yaml
+  frontend-deployment.yaml
+  namespace.yaml
+  networkpolicy.yaml
+  secret.yaml
+VM/
+  autoinst.flp
+  k8s-master.nvram
+  k8s-master.scoreboard
+  k8s-master.vmdk
+VMw1/
+  autoinst.flp
+  k8s-worker1.nvram
+  k8s-worker1.scoreboard
+  k8s-worker1.vmdk
+  k8s-worker1.vmx
+VMw2/
+  autoinst.flp
+  k8s-worker2.nvram
+  k8s-worker2.scoreboard
+  k8s-worker2.vmdk
+  k8s-worker2.vmx
+\end{lstlisting}
+
+\section{Commandes utiles Docker}
+\begin{lstlisting}
+docker compose up --build
+docker compose down
+docker compose ps
+docker compose logs
+docker compose exec backend sh
+\end{lstlisting}
+
+\section{Commandes utiles Kubernetes}
+\begin{lstlisting}
+kubectl get pods -n app-dev
+kubectl get services -n app-dev
+kubectl get deployments -n app-dev
+kubectl describe networkpolicy <name> -n app-dev
+kubectl port-forward -n app-dev pod/<pod> 8081:80
+kubectl logs -n app-dev <pod>
+kubectl exec -n app-dev <pod> -- sh
+\end{lstlisting}
+
+\end{document}
