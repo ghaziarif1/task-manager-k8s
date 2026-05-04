@@ -19,7 +19,7 @@ spec:
         kubernetes.io/hostname: worker2
       containers:
         - name: frontend
-          image: <your-dockerhub-username>/task-manager-k8s-frontend:latest
+          image: ghaazii/task-manager-k8s-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

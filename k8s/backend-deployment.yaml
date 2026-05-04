@@ -26,7 +26,7 @@ spec:
               topologyKey: kubernetes.io/hostname
       containers:
         - name: backend
-          image: <your-dockerhub-username>/task-manager-k8s-backend:latest
+          image: ghaazii/task-manager-k8s-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4000
