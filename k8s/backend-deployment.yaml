@@ -16,7 +16,7 @@ spec:
         app: backend
     spec:
       nodeSelector:
-        kubernetes.io/hostname: worker1
+        kubernetes.io/hostname: master
       containers:
         - name: backend
           image: ghaazii/task-manager-k8s-backend:latest
