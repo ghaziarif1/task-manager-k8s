@@ -17,13 +17,6 @@ spec:
     spec:
       nodeSelector:
         kubernetes.io/hostname: worker1
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            - labelSelector:
-                matchLabels:
-                  app: postgres
-              topologyKey: kubernetes.io/hostname
       containers:
         - name: backend
           image: ghaazii/task-manager-k8s-backend:latest
